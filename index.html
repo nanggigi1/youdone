@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
+  <title>Countdown to August 20 2027 5 PM</title>
+
+  <!-- Poppins font -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    :root {
+      /* Countdown parameters */
+      --target-datetime: "2027-08-20T17:00:00";
+
+      /* Colors & typography */
+      --font-family: "Poppins", sans-serif;
+      --font-color: #ffffff;
+      --line-height: 1.4;
+      --mobile-font-size: 56px;
+      --desktop-font-size: 36px;
+
+      /* Opacity for “less prominent” lines */
+      --faded-opacity: 0.7;
+    }
+
+    /* Reset & base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      color: var(--font-color);
+      font-family: var(--font-family);
+      line-height: var(--line-height);
+      /* Default to desktop size; mobile override below */
+      font-size: var(--desktop-font-size);
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: var(--mobile-font-size);
+      }
+    }
+
+    /* Countdown container */
+    #countdown-container {
+      text-align: center;
+    }
+    .countdown-line {
+      margin: 0.5em 0;
+    }
+    /* Month & quarter are less prominent */
+    #month-line,
+    #quarter-line {
+      opacity: var(--faded-opacity);
+    }
+    .hidden {
+      display: none;
+    }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #loading-emoji {
+      font-size: 5rem;
+    }
+
+    /* Debug dialog */
+    #debug-dialog {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      z-index: 2000;
+      display: none;
+    }
+    #debug-dialog input,
+    #debug-dialog button {
+      width: 100%;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+    #preview-output p {
+      margin: 0.25rem 0;
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Loading overlay with random emoji -->
+  <div id="loading-overlay">
+    <span id="loading-emoji">🎉</span>
+  </div>
+
+  <!-- Countdown lines (week → month → quarter) -->
+  <div id="countdown-container">
+    <div id="week-line" class="countdown-line"> </div>
+    <div id="month-line" class="countdown-line"> </div>
+    <div id="quarter-line" class="countdown-line"> </div>
+  </div>
+
+  <!-- Debug dialog (press “d” to toggle) -->
+  <div id="debug-dialog">
+    <label for="debug-datetime">Use this target date/time:</label>
+    <input type="datetime-local" id="debug-datetime" />
+    <button id="preview-btn">Preview Text</button>
+    <div id="preview-output"></div>
+    <button id="close-debug">Close</button>
+  </div>
+
+  <script>
+    // ──────────────── CONSTANTS ────────────────
+    const TARGET_DATE = new Date(
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--target-datetime")
+        .replace(/["']/g, "")
+    );
+    const EMOJIS = [
+      "🏆", "🤩", "💯", "👹", "🎉", "😅", "😎", "🤘", "🌈"
+    ];
+    const WEEK_START_DAY = 5;   // Friday (0=Sun,1=Mon,…5=Fri)
+    const WEEK_START_HOUR = 17; // 5 PM
+    const DEBUG_KEY = "d";
+
+    // matchMedia for “mobile” vs “desktop” (mirrors CSS @media)
+    const mobileQuery = window.matchMedia("(max-width: 600px)");
+
+    // ────────────── INITIALIZATION ──────────────
+    window.addEventListener("DOMContentLoaded", () => {
+      // 1) Pick a random emoji for loading screen
+      const rand = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      document.getElementById("loading-emoji").textContent = rand;
+
+      // 2) Compute & render countdown for “now”
+      updateCountdown(new Date());
+
+      // 3) Hide loading overlay
+      hideLoadingOverlay();
+
+      // 4) Set up debug‐dialog key listener & buttons
+      setupDebugDialog();
+    });
+
+    // ─────────────── COUNTDOWN LOGIC ───────────────
+    function updateCountdown(referenceDate, isDebug = false) {
+      const now = referenceDate;
+      let target = TARGET_DATE;
+      if (isDebug) {
+        const dbgVal = document.getElementById("debug-datetime").value;
+        if (!dbgVal) return;
+        target = new Date(dbgVal);
+      }
+
+      // If “now” is past target → show “You’re done!”
+      if (now >= target) {
+        if (isDebug) {
+          writePreviewLines(["You’re done!"]);
+        } else {
+          showOnlyDoneMessage();
+        }
+        return;
+      }
+
+      // 1) Weeks remaining (Fri 5 PM blocks)
+      const weeksRemaining = computeWeeksRemaining(now, target);
+
+      // 2) Months remaining (calendar months)
+      const monthsRemaining = computeMonthsRemaining(now, target);
+
+      // 3) Quarters remaining (calendar quarters)
+      const quartersRemaining = computeQuartersRemaining(now, target);
+
+      // Build each line’s text & show/hide logic
+      let weekText = "";
+      if (weeksRemaining <= 1) {
+        weekText = "Final week";
+      } else {
+        weekText = `This week plus ${weeksRemaining - 1} more`;
+      }
+
+      let monthText = null;
+      const showMonth = weeksRemaining > 1;
+      if (showMonth) {
+        monthText =
+          monthsRemaining <= 1
+            ? "Final month"
+            : `This month plus ${monthsRemaining - 1} more`;
+      }
+
+      let quarterText = null;
+      const showQuarter = monthsRemaining > 1;
+      if (showQuarter) {
+        quarterText =
+          quartersRemaining <= 1
+            ? "Final quarter"
+            : `This quarter plus ${quartersRemaining - 1} more`;
+      }
+
+      // Render into DOM (either real or preview)
+      if (isDebug) {
+        const lines = [weekText];
+        if (monthText) lines.push(monthText);
+        if (quarterText) lines.push(quarterText);
+        writePreviewLines(lines);
+      } else {
+        writeRealLines(weekText, monthText, quarterText);
+      }
+    }
+
+    function writeRealLines(weekT, monthT, quarterT) {
+      const w = document.getElementById("week-line");
+      const m = document.getElementById("month-line");
+      const q = document.getElementById("quarter-line");
+
+      // Week is always shown (since now < target ensures ≥1 week)
+      w.textContent = weekT;
+      w.classList.remove("hidden");
+
+      // Month
+      if (monthT) {
+        m.textContent = monthT;
+        m.classList.remove("hidden");
+      } else {
+        m.classList.add("hidden");
+      }
+
+      // Quarter
+      if (quarterT) {
+        q.textContent = quarterT;
+        q.classList.remove("hidden");
+      } else {
+        q.classList.add("hidden");
+      }
+    }
+
+    function showOnlyDoneMessage() {
+      const w = document.getElementById("week-line");
+      const m = document.getElementById("month-line");
+      const q = document.getElementById("quarter-line");
+
+      w.textContent = "You’re done!";
+      w.classList.remove("hidden");
+      m.classList.add("hidden");
+      q.classList.add("hidden");
+    }
+
+    function writePreviewLines(linesArray) {
+      const preview = document.getElementById("preview-output");
+      preview.innerHTML = ""; // clear previous
+      linesArray.forEach((txt) => {
+        const p = document.createElement("p");
+        p.textContent = txt;
+        preview.appendChild(p);
+      });
+    }
+
+    // ─────────────── TIME CALCULATIONS ───────────────
+    function computeWeeksRemaining(now, target) {
+      // (a) Last Friday 5 PM ≤ now
+      const currentBlock = getLastFriday5pm(now);
+      // (b) Last Friday 5 PM ≤ target
+      const targetBlock = getLastFriday5pm(target);
+
+      // Compute difference in milliseconds
+      const diffMs = targetBlock - currentBlock;
+      // Convert to number of whole 7-day periods
+      const weeksBetween = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+      // +1 counts the “current” week-block as week 1
+      return weeksBetween + 1;
+    }
+
+    function getLastFriday5pm(dt) {
+      // Create a copy so we don’t mutate original
+      const d = new Date(dt.getTime());
+      const day = d.getDay(); // 0=Sun…5=Fri…6=Sat
+      let deltaDays;
+
+      if (day > WEEK_START_DAY) {
+        // Sat (6): go back 1 day; (if day=6, 6−5=1)
+        // Sunday…Thursday: day < 5, we’ll handle below
+        deltaDays = day - WEEK_START_DAY;
+      } else if (day < WEEK_START_DAY) {
+        // Mon(1) → subtract (1 + 2) = 3 to land Fri → actually:
+        // if day=4(Thu), 4 + 2 =6 days back to last Fri
+        deltaDays = day + (7 - WEEK_START_DAY);
+      } else {
+        // day = 5 (Friday)
+        // If time < 17:00, go back 7 days; otherwise stay
+        if (d.getHours() < WEEK_START_HOUR) {
+          deltaDays = 7;
+        } else {
+          deltaDays = 0;
+        }
+      }
+
+      // Subtract the days
+      d.setDate(d.getDate() - deltaDays);
+      // Set time to 17:00:00.000
+      d.setHours(WEEK_START_HOUR, 0, 0, 0);
+      return d;
+    }
+
+    function computeMonthsRemaining(now, target) {
+      // Start of current month
+      const cmStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        0,
+        0
+      );
+      // Start of target’s month
+      const tmStart = new Date(
+        target.getFullYear(),
+        target.getMonth(),
+        1,
+        0,
+        0,
+        0,
+        0
+      );
+
+      const yearDiff = tmStart.getFullYear() - cmStart.getFullYear();
+      const monthDiff = tmStart.getMonth() - cmStart.getMonth();
+      // +1 to count the “current” month as 1
+      return yearDiff * 12 + monthDiff + 1;
+    }
+
+    function computeQuartersRemaining(now, target) {
+      const currQuarterStart = getQuarterStart(now);
+      const targQuarterStart = getQuarterStart(target);
+      const currIndex =
+        currQuarterStart.getFullYear() * 4 +
+        Math.floor(currQuarterStart.getMonth() / 3);
+      const targIndex =
+        targQuarterStart.getFullYear() * 4 +
+        Math.floor(targQuarterStart.getMonth() / 3);
+      // +1 to count the “current” quarter as 1
+      return targIndex - currIndex + 1;
+    }
+
+    function getQuarterStart(dt) {
+      const y = dt.getFullYear();
+      const m = dt.getMonth(); // 0…11
+      const qIndex = Math.floor(m / 3); // 0,1,2,3
+      const qMonth = qIndex * 3; // 0,3,6,9
+      return new Date(y, qMonth, 1, 0, 0, 0, 0);
+    }
+
+    // ───────────── DEBUG DIALOG ─────────────
+    function setupDebugDialog() {
+      const dialog = document.getElementById("debug-dialog");
+      const previewBtn = document.getElementById("preview-btn");
+      const closeBtn = document.getElementById("close-debug");
+
+      // Toggle on “d” key
+      window.addEventListener("keydown", (e) => {
+        if (e.key === DEBUG_KEY) {
+          dialog.style.display =
+            dialog.style.display === "none" ? "block" : "none";
+          // Clear previous preview text whenever opening
+          if (dialog.style.display === "block") {
+            document.getElementById("preview-output").innerHTML = "";
+          }
+        }
+      });
+
+      // Preview button
+      previewBtn.addEventListener("click", () => {
+        const dbgVal = document.getElementById("debug-datetime").value;
+        if (!dbgVal) return;
+        updateCountdown(new Date(dbgVal), true);
+      });
+
+      // Close button
+      closeBtn.addEventListener("click", () => {
+        dialog.style.display = "none";
+      });
+    }
+
+    // ─────────── LOADING OVERLAY ───────────
+    function hideLoadingOverlay() {
+      document.getElementById("loading-overlay").style.display = "none";
+    }
+  </script>
+</body>
+</html>

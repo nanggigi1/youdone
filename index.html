@@ -2,12 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
-    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  />
+  <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Almost done 💪</title>
 
   <!-- Poppins font -->
@@ -90,6 +87,7 @@
       align-items: center;
       z-index: 1000;
     }
+    /* Remove the hard‐coded “🎉” here */
     #loading-emoji {
       font-size: 5rem;
     }
@@ -121,9 +119,9 @@
 </head>
 
 <body>
-  <!-- Loading overlay with random emoji -->
+  <!-- Loading overlay with an EMPTY span; JS will fill it -->
   <div id="loading-overlay">
-    <span id="loading-emoji">🎉</span>
+    <span id="loading-emoji"></span>
   </div>
 
   <!-- Countdown lines (week → month → quarter → year) -->

@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+      <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1"
   />
-  <title>Countdown to August 20 2027 5 PM</title>
+  <title>Almost done 💪</title>
 
   <!-- Poppins font -->
   <link
@@ -65,9 +68,10 @@
     .countdown-line {
       margin: 0.5em 0;
     }
-    /* Month & quarter are less prominent */
+    /* Month, quarter, and year are less prominent */
     #month-line,
-    #quarter-line {
+    #quarter-line,
+    #year-line {
       opacity: var(--faded-opacity);
     }
     .hidden {
@@ -123,11 +127,12 @@
     <span id="loading-emoji">🎉</span>
   </div>
 
-  <!-- Countdown lines (week → month → quarter) -->
+  <!-- Countdown lines (week → month → quarter → year) -->
   <div id="countdown-container">
-    <div id="week-line" class="countdown-line"> </div>
-    <div id="month-line" class="countdown-line"> </div>
-    <div id="quarter-line" class="countdown-line"> </div>
+    <div id="week-line" class="countdown-line"></div>
+    <div id="month-line" class="countdown-line"></div>
+    <div id="quarter-line" class="countdown-line"></div>
+    <div id="year-line" class="countdown-line"></div>
   </div>
 
   <!-- Debug dialog (press “d” to toggle) -->
@@ -201,6 +206,9 @@
       // 3) Quarters remaining (calendar quarters)
       const quartersRemaining = computeQuartersRemaining(now, target);
 
+      // 4) Years remaining (calendar years)
+      const yearsRemaining = computeYearsRemaining(now, target);
+
       // Build each line’s text & show/hide logic
       let weekText = "";
       if (weeksRemaining <= 1) {
@@ -227,21 +235,32 @@
             : `This quarter plus ${quartersRemaining - 1} more`;
       }
 
+      let yearText = null;
+      const showYear = quartersRemaining > 1;
+      if (showYear) {
+        yearText =
+          yearsRemaining <= 1
+            ? "Final year"
+            : `This year plus ${yearsRemaining - 1} more`;
+      }
+
       // Render into DOM (either real or preview)
       if (isDebug) {
         const lines = [weekText];
         if (monthText) lines.push(monthText);
         if (quarterText) lines.push(quarterText);
+        if (yearText) lines.push(yearText);
         writePreviewLines(lines);
       } else {
-        writeRealLines(weekText, monthText, quarterText);
+        writeRealLines(weekText, monthText, quarterText, yearText);
       }
     }
 
-    function writeRealLines(weekT, monthT, quarterT) {
+    function writeRealLines(weekT, monthT, quarterT, yearT) {
       const w = document.getElementById("week-line");
       const m = document.getElementById("month-line");
       const q = document.getElementById("quarter-line");
+      const y = document.getElementById("year-line");
 
       // Week is always shown (since now < target ensures ≥1 week)
       w.textContent = weekT;
@@ -262,17 +281,27 @@
       } else {
         q.classList.add("hidden");
       }
+
+      // Year
+      if (yearT) {
+        y.textContent = yearT;
+        y.classList.remove("hidden");
+      } else {
+        y.classList.add("hidden");
+      }
     }
 
     function showOnlyDoneMessage() {
       const w = document.getElementById("week-line");
       const m = document.getElementById("month-line");
       const q = document.getElementById("quarter-line");
+      const y = document.getElementById("year-line");
 
       w.textContent = "You’re done!";
       w.classList.remove("hidden");
       m.classList.add("hidden");
       q.classList.add("hidden");
+      y.classList.add("hidden");
     }
 
     function writePreviewLines(linesArray) {
@@ -307,15 +336,13 @@
       let deltaDays;
 
       if (day > WEEK_START_DAY) {
-        // Sat (6): go back 1 day; (if day=6, 6−5=1)
-        // Sunday…Thursday: day < 5, we’ll handle below
+        // Saturday (6): 6 - 5 = 1 day back
         deltaDays = day - WEEK_START_DAY;
       } else if (day < WEEK_START_DAY) {
-        // Mon(1) → subtract (1 + 2) = 3 to land Fri → actually:
-        // if day=4(Thu), 4 + 2 =6 days back to last Fri
+        // Before Friday: e.g., if Tuesday (2), 2 + (7 - 5) = 4 days back
         deltaDays = day + (7 - WEEK_START_DAY);
       } else {
-        // day = 5 (Friday)
+        // day === 5 (Friday)
         // If time < 17:00, go back 7 days; otherwise stay
         if (d.getHours() < WEEK_START_HOUR) {
           deltaDays = 7;
@@ -378,6 +405,15 @@
       const qIndex = Math.floor(m / 3); // 0,1,2,3
       const qMonth = qIndex * 3; // 0,3,6,9
       return new Date(y, qMonth, 1, 0, 0, 0, 0);
+    }
+
+    function computeYearsRemaining(now, target) {
+      // Start of current year
+      const cyStart = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      // Start of target’s year
+      const tyStart = new Date(target.getFullYear(), 0, 1, 0, 0, 0, 0);
+      // Year difference + 1 to count current year as 1
+      return tyStart.getFullYear() - cyStart.getFullYear() + 1;
     }
 
     // ───────────── DEBUG DIALOG ─────────────
